@@ -2,7 +2,7 @@
 
 ## Offline
 
-Run `./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleRelease lintRelease` with JDK 17 and SDK 35.0.0. An unsigned release build checks release compilation; it is not an installable published release. Unit tests cover strict identity rejection, actual file hashing, HOME classification, bounded request cancellation/expiry and modern gesture cancellation/end ordering.
+Run `./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleRelease lintRelease` with JDK 17, SDK platform 36 and build-tools 35.0.0. An unsigned release build checks release compilation; it is not an installable published release. Unit tests cover strict identity rejection, actual file hashing, HOME classification, bounded request cancellation/expiry and modern gesture cancellation/end ordering.
 
 Run `python3 tools/verify_launcher.py /path/to/PocoLauncher.apk` for an exact-hash DEX declaration check. Xiaomi APKs and REA decompilation results remain local and ignored. Packaged-module checks verify legacy metadata/scope/entry point and that no Xposed implementation or vendor code was bundled. APK identity, signature and alignment are checked with Android build tools. REA inspects the built module's manifest and selected methods as a separate shipped artifact.
 

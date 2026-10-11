@@ -9,13 +9,13 @@ fun requiredSigningVariable(name: String): String =
 
 android {
     namespace = "io.github.adiker.hyperoshomefix"
-    compileSdk = 35
+    compileSdk = 36
     buildToolsVersion = "35.0.0"
 
     defaultConfig {
         applicationId = "io.github.adiker.hyperoshomefix"
         minSdk = 35
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
     }
@@ -47,6 +47,8 @@ android {
         abortOnError = true
         checkReleaseBuilds = true
         warningsAsErrors = true
+        // Pin the verified API-36 toolchain; an online update suggestion must not break old commits.
+        disable += "AndroidGradlePluginVersion"
     }
     testOptions { unitTests.isReturnDefaultValues = false }
 }

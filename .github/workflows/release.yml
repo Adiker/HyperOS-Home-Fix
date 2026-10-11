@@ -58,7 +58,7 @@ jobs:
         with:
           cache-disabled: true
       - name: Install Android build dependencies
-        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"'
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
       - name: Test and lint before signing
         run: ./gradlew --no-daemon testDebugUnitTest lintRelease
       - name: Decode signing keystore

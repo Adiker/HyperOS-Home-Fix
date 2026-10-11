@@ -1,6 +1,6 @@
 # Initial local validation — 2026-10-11
 
-This report describes local checks before repository publication. No GitHub Actions run, physical-device verification or stable release occurred.
+The initial local results below were recorded before repository publication. The publication/CI follow-up is recorded separately below. No physical-device verification or stable release occurred.
 
 | Check | Result |
 | --- | --- |
@@ -17,7 +17,7 @@ This report describes local checks before repository publication. No GitHub Acti
 | XML/YAML/workflow shell syntax, pinned wrapper checksum | PASS |
 | REA-assisted static code review after fixes | No remaining actionable findings |
 | Physical POCO F8 Ultra gestures/animations/settings access | NOT RUN; no device attached through ADB |
-| GitHub CI artifact | PENDING publication approval |
+| GitHub CI artifact | See publication/CI follow-up below |
 | `v0.1.0` release | NOT CREATED; requires CI + device verification + approval |
 
 Final local command:
@@ -33,3 +33,13 @@ The local debug APK SHA-256 is `84a84f57559bd3abdf7750ca8e5e1a97b9a797eec3be2ec7
 REA inspected this final APK as a separate shipped artifact: package/manifest evidence `ev_89e911ab1068ca8db9a519b3493186a1990f5fc8c6ed76722920e03706431361`, compiled package guard/entry-method evidence `ev_1a5cc79bc0139a6d977cbf82fd164980e1927cfe878d00e98bd69e4411f74f89`. The module declares no Android permissions. REA performed static inspection; signing verification was separately performed by Android `apksigner`.
 
 Tests cover exact compatibility rejection, file digest correctness, MAIN/HOME classification, native special-intent exclusion, completion-dependent HOME requests, expiry/cancellation, both orders of modern surface/animation completion, cancellation between callbacks and rejection of queued starts after a cancellation generation changes. They do not simulate real launcher hooks or Android animation scheduling.
+
+## Publication and CI follow-up
+
+The owner approved publication on 2026-10-11. [The public repository](https://github.com/Adiker/HyperOS-Home-Fix) was created without a version tag or release.
+
+The [first CI run](https://github.com/Adiker/HyperOS-Home-Fix/actions/runs/38145621392) compiled the debug APK and ran unit tests, but failed Android lint's `OldTargetApi` check for target SDK 35. The project now compiles and targets API 36 (Android 16) using AGP 8.10.1, Gradle 8.11.1, JDK 17 and build-tools 35.0.0. [Android's compatibility documentation](https://developer.android.com/build/releases/agp-8-10-0-release-notes) confirms this toolchain supports API 36.
+
+The launcher hooks and exact compatibility allowlist are unchanged. Corrected CI verification is pending; device behavior remains unverified.
+
+Lint still treats correctness warnings as errors. Only `AndroidGradlePluginVersion`, an online suggestion to use newer Gradle/AGP releases, is disabled because the compatible toolchain is deliberately pinned. `OldTargetApi` remains enabled.

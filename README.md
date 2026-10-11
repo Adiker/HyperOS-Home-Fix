@@ -16,7 +16,7 @@ The installed base APK must have SHA-256 `aba8d486b2116aba1e32143e5d2a2598460965
 
 ## Installation
 
-1. Install the debug APK from the **Build and verify** workflow artifacts for the commit you intend to test. Debug builds are experimental and use a debug signing identity; they cannot necessarily update a release APK. Once a verified release exists, use its signed APK instead.
+1. Install the debug APK from the **Build and verify** workflow artifacts for the commit you intend to test. Debug builds are experimental; signing identities can differ between local builds and CI runs. If Android reports an incompatible signing certificate, uninstall only this module, install the new APK and initialize its settings again. Once a verified release exists, use its signed APK instead.
 2. Enable **HyperOS Home Fix** in Vector/LSPosed. Select only **POCO Launcher** (`com.mi.android.globallauncher`) as scope. Do not select SystemUI or the Android framework.
 3. Reboot, then open the module's settings app once. This initializes the shared preferences; the module stays inactive without readable initialized settings.
 4. Leave **Enable HOME fix** on. Optionally enable diagnostics during testing. Settings are read on the next HOME transaction.
@@ -32,7 +32,7 @@ Diagnostics are off by default. Turn **Enable diagnostic logging** on in the set
 
 ## Build
 
-Use a full JDK 17 and Android SDK platform/build-tools 35.0.0:
+Use a full JDK 17, Android SDK platform 36 and build-tools 35.0.0:
 
 ```sh
 ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
