@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a reproducible HOME behavior or compatibility problem.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach Xiaomi APKs, decompiled source, credentials, or private logs.
+        Enable diagnostic logging temporarily and redact personal information.
+  - type: input
+    id: device
+    attributes:
+      label: Device model and codename
+      placeholder: POCO F8 Ultra / myron
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Android version and complete HyperOS build
+    validations:
+      required: true
+  - type: input
+    id: launcher
+    attributes:
+      label: POCO Launcher version name and version code
+    validations:
+      required: true
+  - type: input
+    id: framework
+    attributes:
+      label: Module, Vector/LSPosed, and root framework versions
+    validations:
+      required: true
+  - type: dropdown
+    id: navigation
+    attributes:
+      label: Navigation mode
+      options:
+        - Gestures
+        - Three-button navigation
+        - Both
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction, expected result, and actual result
+      description: Include the starting launcher view and whether another app was open.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted diagnostics
+      description: Paste only relevant HyperOSHomeFix entries and crash stack traces.
+      render: text
+  - type: checkboxes
+    id: isolation
+    attributes:
+      label: Isolation checks
+      options:
+        - label: I checked the module scope contains only POCO Launcher.
+          required: true
+        - label: I compared behavior with this module disabled.
+        - label: I tested with other launcher modification modules disabled.

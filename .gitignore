@@ -1,0 +1,34 @@
+# Proprietary APKs and build artifacts must never be committed.
+*.apk
+*.aab
+*.apks
+*.dex
+*.odex
+*.vdex
+*.aar
+*.class
+*.hprof
+.analysis/
+.gradle/
+**/build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+# Signing credentials and local secrets.
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+keystore.properties
+signing.properties
+.env
+.env.*
+secrets/
+signing/
+__pycache__/
+*.pyc
+ci-artifacts/
+release-output/

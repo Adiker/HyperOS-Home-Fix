@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name">HyperOS Home Fix</string>
+    <string name="xposed_description">Restore the default POCO desktop page when HOME is used.</string>
+    <string name="settings_title">HyperOS Home Fix (experimental)</string>
+    <string name="module_enabled">Enable HOME fix</string>
+    <string name="diagnostics_enabled">Enable diagnostic logging</string>
+    <!-- Preserve the exact vendor version string; its hyphens are identifiers. -->
+    <string name="settings_help" tools:ignore="TypographyDashes">Version %1$s\n\nInstall the module APK, enable it in Vector/LSPosed, and select only POCO Launcher (com.mi.android.globallauncher) as its scope. Reboot, then open this settings screen once to initialize the preferences shared with the launcher.\n\nAnalysis target: POCO F8 Ultra (myron), Android 16 / HyperOS 3, POCO Launcher RELEASE-7.50.06.2592-09011644. Physical-device behavior has not been verified. Other launcher builds are disabled automatically.\n\nChanges apply on the next HOME action. Diagnostic logging can be disabled above. To recover from a problem, disable this module in Vector/LSPosed and reboot.</string>
+    <string-array name="xposed_scope">
+        <item>com.mi.android.globallauncher</item>
+    </string-array>
+</resources>
