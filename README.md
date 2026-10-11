@@ -1,5 +1,7 @@
 # HyperOS Home Fix
 
+[![Build and verify](https://github.com/Adiker/HyperOS-Home-Fix/actions/workflows/build.yml/badge.svg)](https://github.com/Adiker/HyperOS-Home-Fix/actions/workflows/build.yml)
+
 An experimental, open-source Vector/LSPosed module for the stock POCO Launcher on Android 16 / HyperOS 3. It aims to make HOME close the app drawer and native launcher overlays, then return to the configured default desktop page.
 
 **Status: exact APK analyzed; physical-device behavior is not yet verified. No stable release has been published.** A successful build proves compilation and offline checks, not working gestures or preserved animations on a phone.

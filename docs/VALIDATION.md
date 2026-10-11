@@ -40,6 +40,10 @@ The owner approved publication on 2026-10-11. [The public repository](https://gi
 
 The [first CI run](https://github.com/Adiker/HyperOS-Home-Fix/actions/runs/38145621392) compiled the debug APK and ran unit tests, but failed Android lint's `OldTargetApi` check for target SDK 35. The project now compiles and targets API 36 (Android 16) using AGP 8.10.1, Gradle 8.11.1, JDK 17 and build-tools 35.0.0. [Android's compatibility documentation](https://developer.android.com/build/releases/agp-8-10-0-release-notes) confirms this toolchain supports API 36.
 
-The launcher hooks and exact compatibility allowlist are unchanged. Corrected CI verification is pending; device behavior remains unverified.
+The launcher hooks and exact compatibility allowlist are unchanged. The [corrected CI run](https://github.com/Adiker/HyperOS-Home-Fix/actions/runs/38145950568), for commit `4656dd467bdf2df023855655be5ea93a0423130a`, completed successfully. Its downloaded reports confirm 19 passing tests, zero failed/ignored tests and zero Android lint issues. Device behavior remains unverified.
 
 Lint still treats correctness warnings as errors. Only `AndroidGradlePluginVersion`, an online suggestion to use newer Gradle/AGP releases, is disabled because the compatible toolchain is deliberately pinned. `OldTargetApi` remains enabled.
+
+The [CI debug artifact](https://github.com/Adiker/HyperOS-Home-Fix/actions/runs/38145950568/artifacts/11705101031) was downloaded and independently checked: signature verification and 16 KiB alignment passed; legacy API 93 metadata, the single POCO scope, entry point, package and module-only DEX passed. The APK SHA-256 is `1a526fff6724d651f291555b74e030c77f73529878fcff912aae7f4275d78ec7`. The artifact ZIP digest reported by GitHub is a separate value.
+
+REA package inspection of the actual CI APK produced evidence `ev_423139adaf33bde58e138b7b9e2699e29e4e4fb39f32c8853c786db834e45b1e`, confirming target SDK 36, version `0.1.0` and no Android permissions. CI artifacts expire after 14 days; rerun the workflow for a fresh testing APK. No version tag, production signing key or stable release was created.
