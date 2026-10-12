@@ -2,27 +2,24 @@
 package io.github.adiker.hyperoshomefix;
 
 import android.app.Activity;
-import android.annotation.SuppressLint;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.LinearLayout;
+import android.widget.Button;
+import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 
-/** Local settings only. Vector/LSPosed provides preference sharing to the hook. */
+/** Private local settings, caller-checked IPC, and last-observed launcher diagnostics. */
 public final class MainActivity extends Activity {
-    // Framework-redirected settings contain only two switches, never private user data.
-    @SuppressLint("WorldReadableFiles")
+    private TextView status;
+    // Hooked only in the module's own app to distinguish loading the class from delivering callbacks.
+    public static String frameworkProbe() { return "No framework callback observed in settings app"; }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        SharedPreferences prefs;
-        try {
-            // Legacy API 93 shared-preference redirection permits this mode inside the framework.
-            prefs = getSharedPreferences("settings", MODE_WORLD_READABLE);
-        } catch (SecurityException unavailable) {
-            prefs = getSharedPreferences("settings", MODE_PRIVATE);
-        }
-        final SharedPreferences settings = prefs;
+        final SharedPreferences settings = getSharedPreferences("settings", MODE_PRIVATE);
         if (!settings.contains("initialized")) settings.edit().putBoolean("initialized", true)
                 .putBoolean("enabled", true).putBoolean("diagnostics", false).apply();
         LinearLayout layout = new LinearLayout(this);
@@ -38,7 +35,52 @@ public final class MainActivity extends Activity {
         TextView help = new TextView(this);
         help.setText(getString(R.string.settings_help, Compatibility.VERSION));
         layout.addView(help);
-        setContentView(layout);
+        status = new TextView(this);
+        status.setTextIsSelectable(true);
+        layout.addView(status);
+        Button refresh = new Button(this);
+        refresh.setText(R.string.refresh_status);
+        refresh.setOnClickListener(view -> refreshStatus());
+        layout.addView(refresh);
+        Button copy = new Button(this);
+        copy.setText(R.string.copy_status);
+        copy.setOnClickListener(view -> {
+            ClipboardManager clipboard = getSystemService(ClipboardManager.class);
+            if (clipboard != null) clipboard.setPrimaryClip(ClipData.newPlainText(
+                    getString(R.string.runtime_status_title), status.getText()));
+        });
+        layout.addView(copy);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(layout);
+        setContentView(scroll);
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        refreshStatus();
+    }
+    private void refreshStatus() {
+        if (status == null) return;
+        Bundle report = getContentResolver().call(ModuleChannel.URI, "status", null, null);
+        SharedPreferences settings = getSharedPreferences("settings", MODE_PRIVATE);
+        String code = report == null ? "" : report.getString("code", "");
+        String text = getString(R.string.runtime_status_format, BuildConfig.VERSION_CODE,
+                frameworkProbe(), settings.getBoolean("initialized", false),
+                settings.getBoolean("enabled", false), settings.getBoolean("diagnostics", false),
+                code.isEmpty() ? getString(R.string.no_launcher_report) : code,
+                report == null ? "" : report.getString("detail", ""),
+                report == null ? 0 : report.getInt("build"),
+                report == null ? 0 : report.getInt("pid"),
+                report == null ? "" : report.getString("event", ""));
+        if (report != null && report.getLong("reportedAt") > 0) {
+            text += getString(R.string.profile_status_format,
+                    java.text.DateFormat.getDateTimeInstance().format(new java.util.Date(report.getLong("reportedAt"))),
+                    report.getInt("sdk"), report.getString("device", ""),
+                    report.getString("version", ""), report.getLong("versionCode"),
+                    report.getString("digest", ""), report.getString("error", ""),
+                    report.getBoolean("firstApplication"));
+        }
+        status.setText(text);
     }
 
     private void addSwitch(LinearLayout layout, SharedPreferences prefs, String key,

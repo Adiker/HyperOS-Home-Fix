@@ -3,12 +3,16 @@ package io.github.adiker.hyperoshomefix;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.IntentFilter;
 import android.content.pm.PackageInfo;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.os.UserManager;
 import java.io.File;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
@@ -16,9 +20,10 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.WeakHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
@@ -32,78 +37,128 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
     private final WeakHashMap<Object, ModernGesture> legacyGestures = new WeakHashMap<>();
     private final List<XC_MethodHook.Unhook> hooks = new ArrayList<>();
     private final CancellationEpoch cancellations = new CancellationEpoch();
-    private XSharedPreferences preferences;
+    private final ExecutorService io = Executors.newSingleThreadExecutor(task -> new Thread(task, "HomeFix-IPC"));
+    private ModuleChannel channel;
+    private Bundle profile = new Bundle();
     private Api api;
     private volatile boolean failed;
     private boolean checking;
     private boolean installed;
     private boolean correcting;
-    private boolean diagnostics;
+    private volatile boolean diagnostics;
+    private boolean bootstrapRegistered;
+    private BroadcastReceiver unlockReceiver;
+    private WeakReference<Activity> unlockOwner;
 
     @Override public void handleLoadPackage(XC_LoadPackage.LoadPackageParam load) {
+        if (MODULE.equals(load.packageName) && MODULE.equals(load.processName)) {
+            try {
+                Class<?> settings = load.classLoader.loadClass(MODULE + ".MainActivity");
+                XposedBridge.hookMethod(method(settings, "frameworkProbe", String.class), new XC_MethodHook() {
+                    @Override protected void beforeHookedMethod(MethodHookParam p) {
+                        p.setResult("Framework callback observed; firstApplication=" + load.isFirstApplication);
+                    }
+                });
+            } catch (Throwable ignored) { /* The settings app retains its explicit negative probe. */ }
+            return;
+        }
         if (!Compatibility.PACKAGE.equals(load.packageName)
-                || !Compatibility.PACKAGE.equals(load.processName) || !load.isFirstApplication) return;
+                || !Compatibility.PACKAGE.equals(load.processName) || bootstrapRegistered) return;
+        // isFirstApplication is framework bookkeeping, not the primary-process security boundary.
+        // Exact package/process, device, APK digest and declaring-member checks still apply.
         try {
-            preferences = new XSharedPreferences(MODULE, "settings");
-            readSettings();
-            if (Build.VERSION.SDK_INT != 36 || !"myron".equals(Build.DEVICE)) {
-                log("Unsupported Android/device profile; no hooks installed.");
-                return;
-            }
-            log("Module build " + BuildConfig.VERSION_CODE + ": launcher callback received; waiting for native onCreate.");
+            profile.putInt("build", BuildConfig.VERSION_CODE);
+            profile.putInt("sdk", Build.VERSION.SDK_INT);
+            profile.putString("device", Build.DEVICE);
+            profile.putBoolean("firstApplication", load.isFirstApplication);
             Class<?> base = load.classLoader.loadClass("com.miui.home.launcher.BaseLauncher");
             Method create = method(base, "onCreate", void.class, Bundle.class);
-            XposedBridge.hookMethod(create, new XC_MethodHook() {
+            XC_MethodHook.Unhook bootstrap = XposedBridge.hookMethod(create, new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
                     if (param.hasThrowable() || checking || installed || failed) return;
-                    checking = true;
-                    Activity activity = (Activity) param.thisObject;
-                    main = new Handler(activity.getMainLooper());
-                    WeakReference<Activity> owner = new WeakReference<>(activity);
-                    // Hash the installed APK off the UI thread. No hook mutates launcher state yet.
-                    new Thread(() -> {
-                        try {
-                            PackageInfo info = activity.getPackageManager().getPackageInfo(Compatibility.PACKAGE, 0);
-                            boolean match = info.applicationInfo != null
-                                    && (info.applicationInfo.splitSourceDirs == null
-                                        || info.applicationInfo.splitSourceDirs.length == 0)
-                                    && Compatibility.supported(Build.VERSION.SDK_INT, Build.DEVICE,
-                                        info.versionName, info.getLongVersionCode(),
-                                        Compatibility.digest(new File(info.applicationInfo.sourceDir)));
-                            main.post(() -> {
-                                try {
-                                    if (!match) { log("Unsupported installed APK profile; no correction hooks installed."); failed = true; return; }
-                                    api = new Api(load.classLoader);
-                                    install();
-                                    installed = true;
-                                    log("Exact APK validated; hooks installed. Physical-device validation pending.");
-                                    // Cold startup uses the launcher's native default-page handling.
-                                    if (owner.get() == null) requests.clear();
-                                } catch (Throwable error) { fail(error); }
-                            });
-                        } catch (Throwable error) { main.post(() -> fail(error)); }
-                    }, "HomeFix-verify").start();
+                    try { initialize((Activity) param.thisObject, load.classLoader); }
+                    catch (Throwable error) { fail(error); }
                 }
             });
+            if (bootstrap == null) throw new IllegalStateException("Bootstrap hook registration rejected");
+            bootstrapRegistered = true;
         } catch (Throwable error) { fail(error); }
     }
 
-    private boolean enabled() {
-        if (failed || preferences == null) return false;
-        return readSettings();
-    }
-    private boolean readSettings() {
-        if (preferences == null) return false;
-        try {
-            preferences.reload();
-            diagnostics = preferences.getBoolean("diagnostics", false);
-            // Unreadable settings fail closed, rather than silently ignoring the user's switch.
-            if (!preferences.getBoolean("initialized", false)) {
-                log("Settings not initialized/readable; HOME correction is inactive.");
-                return false;
+    /** CE settings are unavailable before first unlock; do not permanently disable on that edge. */
+    private void initialize(Activity activity, ClassLoader loader) {
+        Context context = activity.getApplicationContext();
+        UserManager users = context.getSystemService(UserManager.class);
+        if (users == null) { fail(new IllegalStateException("User state unavailable")); return; }
+        if (!users.isUserUnlocked()) {
+            unlockOwner = new WeakReference<>(activity);
+            if (unlockReceiver == null) {
+                unlockReceiver = new BroadcastReceiver() {
+                    @Override public void onReceive(Context ignored, Intent intent) {
+                        if (!Intent.ACTION_USER_UNLOCKED.equals(intent.getAction())) return;
+                        try {
+                            context.unregisterReceiver(this);
+                            unlockReceiver = null;
+                            Activity current = unlockOwner == null ? null : unlockOwner.get();
+                            unlockOwner = null;
+                            if (current != null && !current.isFinishing() && !current.isDestroyed()
+                                    && !checking && !installed && !failed) initialize(current, loader);
+                        } catch (Throwable error) { fail(error); }
+                    }
+                };
+                context.registerReceiver(unlockReceiver, new IntentFilter(Intent.ACTION_USER_UNLOCKED),
+                        Context.RECEIVER_NOT_EXPORTED);
+                // Unlock may race the first check and receiver registration.
+                if (users.isUserUnlocked()) {
+                    context.unregisterReceiver(unlockReceiver);
+                    unlockReceiver = null;
+                    unlockOwner = null;
+                    initialize(activity, loader);
+                }
             }
-            return preferences.getBoolean("enabled", true);
-        } catch (Throwable error) { fail(error); return false; }
+            return;
+        }
+        checking = true;
+        main = new Handler(activity.getMainLooper());
+        channel = new ModuleChannel(activity);
+        // Hash the installed APK off the UI thread. No hook mutates launcher state yet.
+        io.execute(() -> {
+            try {
+                ModuleChannel.Settings settings = channel.settings();
+                diagnostics = settings.diagnostics;
+                channel.state("CHECKING", "Launcher callback and native onCreate reached", profile);
+                log("Module build " + BuildConfig.VERSION_CODE + ": launcher bootstrap reached; settings IPC readable.");
+                if (Build.VERSION.SDK_INT != 36 || !"myron".equals(Build.DEVICE)) {
+                    channel.state("UNSUPPORTED_DEVICE", "Android SDK/device allowlist rejected this runtime", profile);
+                    failed = true;
+                    return;
+                }
+                PackageInfo info = activity.getPackageManager().getPackageInfo(Compatibility.PACKAGE, 0);
+                profile.putString("version", info.versionName);
+                profile.putLong("versionCode", info.getLongVersionCode());
+                String digest = info.applicationInfo == null ? "" : Compatibility.digest(new File(info.applicationInfo.sourceDir));
+                profile.putString("digest", digest);
+                boolean match = info.applicationInfo != null
+                        && (info.applicationInfo.splitSourceDirs == null
+                            || info.applicationInfo.splitSourceDirs.length == 0)
+                        && Compatibility.supported(Build.VERSION.SDK_INT, Build.DEVICE,
+                            info.versionName, info.getLongVersionCode(), digest);
+                if (!match) {
+                    channel.state("UNSUPPORTED_APK", "Installed version, digest or split package differs from the analyzed APK", profile);
+                    failed = true;
+                    return;
+                }
+                main.post(() -> {
+                    try {
+                        api = new Api(loader);
+                        install();
+                        installed = true;
+                        state("READY", "Exact APK validated; all launcher hooks installed");
+                        log("Exact APK validated; hooks installed. Physical-device validation pending.");
+                    } catch (Throwable error) { fail(error); }
+                });
+            } catch (Throwable error) { main.post(() -> fail(error)); }
+        });
     }
 
     static boolean isHome(Intent intent) {
@@ -119,8 +174,8 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
                 try {
                     Activity a = (Activity) p.thisObject;
                     // Save the pre-native focus; do not alter Intent, arguments, result or exception.
-                    boolean home = isHome((Intent) p.args[0]) && enabled();
-                    log(home ? "MAIN/HOME intent accepted." : "Intent excluded or correction disabled.");
+                    boolean home = isHome((Intent) p.args[0]);
+                    event(home ? "HOME observed; waiting for native handling and current settings" : "Non-HOME or special intent excluded");
                     p.setObjectExtra("homefix.home", home);
                     p.setObjectExtra("homefix.focus", a.hasWindowFocus());
                     if (!home) cancel(a);
@@ -149,7 +204,7 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
         // Native successful app-to-HOME completion, in the launcher process (not SystemUI).
         hook(api.gestureStart, after(p -> {
             Activity a = (Activity) p.args[0];
-            if (enabled() && a != null && p.gestureEligible
+            if (a != null && p.gestureEligible
                     && cancellations.accepts(p.epoch, p.timestamp, now())) {
                 legacyGestures.put(p.thisObject, new ModernGesture(a, p.timestamp));
             }
@@ -157,7 +212,7 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
         hook(api.gestureFinish, after(p -> {
             Activity a = (Activity) api.navLauncher.get(p.thisObject);
             if (a == null) return;
-            if (!Boolean.TRUE.equals(p.args[0]) || !enabled() || !a.hasWindowFocus()) { cancel(a); return; }
+            if (!Boolean.TRUE.equals(p.args[0]) || !a.hasWindowFocus()) { cancel(a); return; }
             ModernGesture started = legacyGestures.remove(p.thisObject);
             if (started == null || started.owner.get() != a || now() >= started.deadline) return;
             gestureViews.put(a, new WeakReference<>(p.thisObject));
@@ -173,7 +228,7 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
         hook(api.modernStart, after(p -> {
             Object nav = api.listenerNav.get(p.thisObject);
             Activity a = (Activity) api.navLauncher.get(nav);
-            if (enabled() && p.gestureEligible && a != null
+            if (p.gestureEligible && a != null
                     && cancellations.accepts(p.epoch, p.timestamp, now())) {
                 modernGestures.put(p.thisObject, new ModernGesture(a, p.timestamp));
             }
@@ -240,7 +295,7 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
         if (!completion.takeCompleted()) return;
         Object nav = api.listenerNav.get(listener);
         Activity a = (Activity) api.navLauncher.get(nav);
-        if (a == null || a != gesture.owner.get() || !enabled() || !a.hasWindowFocus()) return;
+        if (a == null || a != gesture.owner.get() || !a.hasWindowFocus()) return;
         legacyGestures.remove(nav);
         // Both native callbacks have finished; no remote surface or icon animation is replaced.
         gestureViews.remove(a);
@@ -287,7 +342,11 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
             }
         };
     }
-    private void hook(Method method, XC_MethodHook callback) { hooks.add(XposedBridge.hookMethod(method, callback)); }
+    private void hook(Method method, XC_MethodHook callback) {
+        XC_MethodHook.Unhook registered = XposedBridge.hookMethod(method, callback);
+        if (registered == null) throw new IllegalStateException("Native hook registration rejected");
+        hooks.add(registered);
+    }
     private HomeRequest begin(Activity a, boolean completed) {
         HomeRequest request = new HomeRequest();
         request.begin(now(), completed);
@@ -311,46 +370,92 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
     private void queue(Activity a) {
         if (failed || correcting) return;
         HomeRequest expected = requests.get(a);
-        if (expected == null || !expected.ready(now())) return;
+        if (expected == null || !expected.ready(now()) || expected.settingsRequested) return;
+        expected.settingsRequested = true;
         WeakReference<Activity> owner = new WeakReference<>(a);
-        main.post(() -> {
-            Activity current = owner.get();
-            if (current != null && requests.get(current) == expected) correct(current, expected);
+        io.execute(() -> {
+            try {
+                ModuleChannel.Settings settings = channel.settings();
+                diagnostics = settings.diagnostics;
+                main.post(() -> {
+                    expected.settingsRequested = false;
+                    Activity current = owner.get();
+                    if (current != null && requests.get(current) == expected) correct(current, expected, settings);
+                });
+            } catch (Throwable error) {
+                main.post(() -> {
+                    Activity current = owner.get();
+                    if (current != null && requests.get(current) == expected) cancel(current);
+                    event("Settings IPC unavailable; this HOME request was left native");
+                });
+            }
         });
     }
 
-    private void correct(Activity a, HomeRequest r) {
+    private void correct(Activity a, HomeRequest r, ModuleChannel.Settings settings) {
         if (failed || correcting || !r.ready(now())) return;
         try {
-            if (!enabled() || a.isFinishing() || a.isDestroyed()) { cancel(a); return; }
-            if (!a.hasWindowFocus() || (boolean) api.locked.invoke(a)) { cancel(a); return; }
-            if ((boolean) api.loading.invoke(a)) return;
+            if (!settings.initialized || !settings.enabled || a.isFinishing() || a.isDestroyed()) {
+                event("Current settings disabled/uninitialized, or activity unavailable"); cancel(a); return;
+            }
+            if (!a.hasWindowFocus() || (boolean) api.locked.invoke(a)) {
+                event("HOME skipped: focus lost or activity locked"); cancel(a); return;
+            }
+            if ((boolean) api.loading.invoke(a)) { event("HOME waiting: workspace loading"); return; }
             WeakReference<Object> navRef = gestureViews.get(a);
             Object nav = navRef == null ? null : navRef.get();
-            if (nav != null && api.navAnimating.getBoolean(nav)) return;
+            if (nav != null && api.navAnimating.getBoolean(nav)) { event("HOME waiting: native gesture animation"); return; }
             // Keep Recents and other states native. Drawer is the only forced state transition.
             boolean normal = (boolean) api.inState.invoke(a, api.normal);
             boolean allApps = (boolean) api.inState.invoke(a, api.allApps);
-            if (!normal && !allApps) { cancel(a); return; }
+            if (!normal && !allApps) { event("HOME left native: launcher state is neither NORMAL nor ALL_APPS"); cancel(a); return; }
             correcting = true;
             if (!r.cleaned) {
                 r.cleaned = true;
                 api.hideApps.invoke(a);
                 api.nativeHome.invoke(a);
             }
-            if (!(boolean) api.inState.invoke(a, api.normal)) return;
+            if (!(boolean) api.inState.invoke(a, api.normal)) { event("HOME waiting: native drawer state transition"); return; }
             Object workspace = api.workspace.invoke(a);
             if (workspace == null) { cancel(a); return; }
             if (!(boolean) api.defaultShowing.invoke(workspace)) api.moveDefault.invoke(workspace, true);
             cancel(a);
-            log("HOME corrected using native launcher methods.");
+            event("HOME corrected using native launcher methods");
         } catch (Throwable error) { fail(error); }
         finally { correcting = false; }
     }
 
-    private void log(String message) { if (diagnostics) XposedBridge.log("HyperOSHomeFix: " + message); }
+    private void log(String message) {
+        if (!diagnostics || channel == null) return;
+        io.execute(() -> {
+            try {
+                if (channel.settings().diagnostics) XposedBridge.log("HyperOSHomeFix: " + message);
+            } catch (Throwable ignored) { /* An unreadable logging switch must stay quiet. */ }
+        });
+    }
+    private void state(String code, String detail) {
+        if (channel == null) return;
+        Bundle snapshot = new Bundle(profile);
+        io.execute(() -> {
+            try { channel.state(code, detail, snapshot); }
+            catch (Throwable ignored) { /* Status transport must never fail a native launcher event. */ }
+        });
+    }
+    private void event(String detail) {
+        if (!diagnostics || channel == null) return;
+        io.execute(() -> {
+            try {
+                diagnostics = channel.settings().diagnostics;
+                if (!diagnostics) return;
+                XposedBridge.log("HyperOSHomeFix: " + detail);
+                channel.event(detail);
+            } catch (Throwable ignored) { /* Optional diagnostics only. */ }
+        });
+    }
     private void fail(Throwable error) {
         failed = true;
+        profile.putString("error", error.getClass().getSimpleName());
+        state("ERROR", "Initialization or native hook error disabled this launcher process");
         cancellations.invalidate();
         if (Looper.myLooper() == Looper.getMainLooper()) {
             requests.clear(); gestureViews.clear(); modernGestures.clear(); legacyGestures.clear();

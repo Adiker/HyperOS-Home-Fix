@@ -47,7 +47,7 @@ CustoMIUIzer's GPL and HyperCeiler's AGPL code was not copied. The Apache-2.0 im
 
 REA-assisted review identified stale lifecycle/animation transactions, duplicate native cleanup, cancellation callback ambiguity and mutable gesture-state classification. The final implementation invalidates owner tokens and queued starts, preserves native Back, snapshots eligibility at the event and uses a recursion guard. Final static review found no remaining actionable defect.
 
-Still unknown: physical-device behavior, framework/SELinux settings sharing, actual callback thread ordering, every firmware-specific overlay path and visual animation continuity. See [the pending device checklist](TESTING.md); release attestation must not be filled from these static findings.
+Still unknown: physical-device behavior, settings transport access, actual callback thread ordering, every firmware-specific overlay path and visual animation continuity. See [the pending device checklist](TESTING.md); release attestation must not be filled from these static findings.
 
 ## Home-to-home regression investigation — 2026-10-12
 
@@ -58,3 +58,15 @@ Focused REA inspection found that `NavStubView.performHomeToHome()` schedules `l
 The focused native Recents-to-HOME callback instead performs overview-state exit and native finalization; it does not construct that intent in the inspected body. Evidence: `ev_c2898e1e32f2815122caad52c486a110e08a86aa302fafcae79709e60cfc4fb7`. This observation is bounded to that method and does not replace device regression testing.
 
 Experimental build 2 accepts the native focus flag while retaining MAIN/HOME, location/feed exclusions, identity checks and cancellation guards. No new launcher method hook was needed. Tests reproduce the rejected native flag and verify that it cannot make another action/category or a location/feed intent eligible. This repairs the demonstrated filtering bug; it does not yet prove it is the only reason for the owner's observed behavior.
+
+## Activation investigation and experimental build 3 — 2026-10-12
+
+The owner's exported framework logs identify Vector 2.2 (3080), commit `88f8e1fa`, Android SDK 36 and device `myron`. They show the recommended launcher scope enabled and the module entry class loaded in the actual launcher process as well as in its own settings process. No module diagnostic entries were found in the supplied current module/verbose logs. Class loading does not establish callback delivery, compatibility acceptance, readable switches or successful native hook registration. The installed launcher digest is still unknown; the local analyzed APK cannot establish that runtime identity.
+
+The prior implementation read diagnostics through the same cross-process preference mechanism as the enable switch. An unreadable file could suppress both behavior and logs; the export does not prove that occurred. Build 3 replaces those reads with worker-thread, Binder-UID-checked provider calls and exposes the last initialization report in its own settings UI. It records the observed version/digest, compatibility rejection, successful registration or sanitized error type. Optional event reports follow the current diagnostic switch. No private exported log or vendor code is distributed.
+
+[The installed Vector context resolver](https://github.com/JingMatrix/Vector/blob/88f8e1fa/xposed/src/main/kotlin/org/matrix/vector/impl/hookers/LoadedApkHookers.kt) derives its first-package bookkeeping from bound package/process information. Build 3 records this flag for diagnosis instead of using it as an additional veto; the exact package and primary-process guards remain mandatory. This is a robustness change, not evidence that the flag was false on this phone.
+
+The supplied launcher's compiled manifest declares `android.permission.QUERY_ALL_PACKAGES`; the module's manifest declares visibility only for the launcher. [Android documents package/provider visibility declarations](https://developer.android.com/training/package-visibility/declaring). Actual IPC accessibility, SELinux/vendor restrictions, hook delivery and HOME behavior still require the physical retest. Absence of a provider report remains an ambiguous bootstrap/transport failure rather than a confirmed root cause.
+
+Independent review found a Direct Boot edge: the supplied launcher is Direct Boot aware, whereas private module settings are credential-encrypted. Build 3 defers initialization until `UserManager.isUserUnlocked()` and resumes on the system unlock broadcast, retaining only a weak activity reference. This prevents a pre-unlock settings-access failure from permanently disabling initialization. [Android Direct Boot guidance](https://developer.android.com/privacy-and-security/direct-boot) establishes the storage boundary; occurrence on the owner's phone remains unverified.

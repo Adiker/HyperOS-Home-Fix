@@ -8,12 +8,14 @@ final class HomeRequest {
     private boolean pending;
     private boolean ready;
     boolean cleaned;
+    boolean settingsRequested;
 
     void begin(long now, boolean completed) {
         deadline = now + MAX_AGE_MS;
         pending = true;
         ready = completed;
         cleaned = false;
+        settingsRequested = false;
     }
 
     boolean active(long now) {
@@ -23,5 +25,5 @@ final class HomeRequest {
 
     void complete(long now) { if (active(now)) ready = true; }
     boolean ready(long now) { return active(now) && ready; }
-    void cancel() { pending = false; ready = false; cleaned = false; }
+    void cancel() { pending = false; ready = false; cleaned = false; settingsRequested = false; }
 }

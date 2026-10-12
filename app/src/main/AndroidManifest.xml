@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <queries>
+        <package android:name="com.mi.android.globallauncher" />
+    </queries>
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -12,6 +16,12 @@
         <meta-data android:name="xposedminversion" android:value="93" />
         <meta-data android:name="xposedsharedprefs" android:value="true" />
         <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
+        <!-- call() authenticates Binder UID; no general query, write or file access is exposed. -->
+        <provider
+            android:name=".ModuleStateProvider"
+            android:authorities="io.github.adiker.hyperoshomefix.state"
+            android:exported="true"
+            tools:ignore="ExportedContentProvider" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

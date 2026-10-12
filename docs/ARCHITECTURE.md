@@ -1,14 +1,20 @@
 # Architecture
 
-The legacy Xposed entry point is `io.github.adiker.hyperoshomefix.HomeFixModule`. Module scope and runtime guards select only the primary `com.mi.android.globallauncher` process. There is no SystemUI hook, replacement activity, intent rewrite, method replacement or modification of native return values.
+The legacy Xposed entry point is `io.github.adiker.hyperoshomefix.HomeFixModule`. State-changing guards select only the primary `com.mi.android.globallauncher` process. The module's own settings app additionally has a harmless static callback probe. There is no SystemUI hook, replacement launcher activity, intent rewrite or modification of native launcher return values.
 
 ## Identity and initialization
 
 The bootstrap hook runs after the analyzed `BaseLauncher.onCreate(Bundle)`. It reads package/version information and hashes the installed base APK on a worker thread. No state correction is installed until all identity checks and every required reflective member pass. Unsupported Android SDK/device identifiers bypass bootstrap entirely. Split APK installations are conservatively rejected.
 
-The SDK 36 and `myron` checks identify the intended Android/device combination; they do not detect or certify a firmware build. The exact APK digest is the strongest static compatibility boundary. Porting requires fresh analysis, not removal of this check.
+The SDK 36 and `myron` checks identify the intended Android/device combination; they do not detect or certify a firmware build. The exact APK digest is the strongest static compatibility boundary. `isFirstApplication` is recorded as framework metadata and no longer vetoes a callback that already matches the exact primary package/process. Porting requires fresh analysis, not removal of the compatibility checks.
 
-An initialized, framework-readable `settings` preference file is required. `initialized`, `enabled` and `diagnostics` are the only stored values. Legacy API 93 preference redirection permits sharing these non-sensitive switches with the launcher process. An unreadable file disables corrections. An error latches the module inactive until process restart and unhooks correction callbacks where possible.
+Build 3 keeps `initialized`, `enabled` and `diagnostics` in the settings app's private preferences. A narrowly exported `ModuleStateProvider` authenticates the Binder UID against the actual module/launcher UID. The launcher may read those switches and report status, but cannot write settings or read status. Only the module can read status. General queries, mutations and file access are unsupported; package visibility names only POCO Launcher. This removes the dependency on reading another process's preference file. Framework redirection of the module's own private storage is harmless because both the UI and provider run in the same app.
+
+The provider retains one last initialization report with public build/version/hash metadata and, only while diagnostic logging is enabled, one last fixed event message. No desktop content, arbitrary Intent extras, stack traces, APK paths or other app lists are retained. These are timestamped last observations, not live-process attestations. Diagnostic log emission refreshes the logging permission through IPC before writing.
+
+Settings/status IPC and APK hashing run on a single worker. A ready HOME request reserves one settings lookup; the main-thread response must still match the same live request, then checks initialized/enabled before any native state call. Focus/input/lifecycle cancellation and expiry invalidate delayed replies. Temporary settings IPC failure leaves the current HOME native; a native hook error opens the process circuit breaker. All hook registrations must return a non-null registration before the provider reports `READY`.
+
+Because the launcher is Direct Boot aware, bootstrap defers private settings IPC until the first user unlock. An application-context receiver listens only for the protected system unlock action and retains a weak reference to the latest launcher activity. The initial check/registration race is rechecked; a destroyed activity is not initialized. Private settings remain credential-encrypted.
 
 ## HOME intent path
 
@@ -32,7 +38,7 @@ Correction invokes `hideAppView()` for the drawer and, when native cleanup has n
 ## Limits requiring a phone
 
 - Callback coverage/timing for three-button navigation, full-screen gestures, interrupted remote animations and disabled system animations.
-- Shared-preference access through the installed framework/SELinux policy.
+- Provider IPC and caller UID validation through the installed framework/SELinux policy.
 - Drawer search/category/folder animation behavior and default-page movement during native closing animations.
 - A cold launcher startup before asynchronous compatibility verification uses native behavior only.
 - Overview, feed, split/floating-window and other non-normal states retain native HOME handling; their HOME-to-default-page behavior is not promised by this initial implementation.

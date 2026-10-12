@@ -40,4 +40,20 @@ public class HomeRequestTest {
         assertFalse(request.ready(102));
         assertFalse(request.cleaned);
     }
+    @Test public void expirationClearsAnInFlightSettingsDecision() {
+        HomeRequest request = new HomeRequest();
+        request.begin(100, true);
+        request.settingsRequested = true;
+        assertFalse(request.ready(100 + HomeRequest.MAX_AGE_MS));
+        assertFalse(request.settingsRequested);
+    }
+    @Test public void cancellationCannotBeUndoneBySettingsCompletion() {
+        HomeRequest request = new HomeRequest();
+        request.begin(100, true);
+        request.settingsRequested = true;
+        request.cancel();
+        request.complete(101);
+        assertFalse(request.ready(101));
+        assertFalse(request.settingsRequested);
+    }
 }

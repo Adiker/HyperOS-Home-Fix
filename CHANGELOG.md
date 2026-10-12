@@ -2,6 +2,15 @@
 
 ## 0.1.0 — unreleased
 
+### Experimental build 3 — 2026-10-12
+
+- Add a settings-screen callback probe and last-observed launcher status, profile/hash, module build and optional last event, with refresh/copy actions.
+- Replace cross-process `XSharedPreferences` reads with asynchronous caller-checked settings IPC; preserve fail-closed switches, request expiration and cancellation.
+- Defer launcher initialization before the first user unlock to keep private settings access out of Direct Boot.
+- Report compatibility rejection and initialization failure independently of the event-logging toggle.
+- Use exact package/process isolation rather than treating framework `isFirstApplication` bookkeeping as a compatibility check.
+- Require non-null hook registrations before reporting successful installation. Device failure remains under investigation; this is not a verified stable release.
+
 ### Experimental build 2 — 2026-10-12
 
 - Fix rejection of POCO's native home-to-home HOME intents carrying `ignore_bring_to_front=true`; the previous filter could leave drawer/desktop HOME unchanged even with active hooks.

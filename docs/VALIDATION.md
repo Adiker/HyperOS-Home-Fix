@@ -53,3 +53,13 @@ REA package inspection of the actual CI APK produced evidence `ev_423139adaf33bd
 The owner reported no visible behavior change after activation and a soft reboot. REA confirmed that POCO's native home-to-home gesture sends a MAIN/HOME intent with `ignore_bring_to_front=true`; the first implementation rejected it. Build 2 fixes this demonstrated filter bug and adds opt-in bootstrap/intent diagnostics. It keeps the same exact APK allowlist and native methods.
 
 Local debug/release builds and lint pass; 21 tests pass with zero failures/errors/skips, including the native-flag regression and non-HOME isolation. Packaged module verification passes, with module version code 2. A real-device retest and activation logs remain required; the reported phone behavior is not considered fixed merely from these offline results. The push triggers CI for this build and publishes a testing artifact, not a stable release.
+
+## Experimental diagnostic build 3 — 2026-10-12
+
+The supplied Vector export confirms the recommended scope and entry-class loading in the launcher process, with Vector 2.2, Android SDK 36 and device `myron`. It contains no module diagnostic entries establishing callback/hook installation, switch access or installed APK identity. The owner reports that HOME still does not work as requested. No successful physical retest is recorded.
+
+Build 3 replaces cross-process preference reads with authenticated asynchronous settings IPC, adds a settings-app callback probe and last-observed launcher status, records exact compatibility rejection, and requires successful hook registrations. An independent review caught a Direct Boot initialization edge and stale diagnostic-switch reads; both were corrected. The final review found no further actionable defect, with Binder/boot/device behavior still pending.
+
+Local debug and unsigned release builds, debug/release lint and 27 JVM tests pass (zero failures/errors/skips). Exact launcher identity/33 DEX declarations and the actual module manifest/provider/scope/entry/owned-only DEX pass. Debug signing and 16 KiB ZIP alignment pass. The local APK digest is `47a57ea2638245fdef3f87cf8898cdc607332c8b400eee7a43e24e40e4a97c37`, version code 3.
+
+REA inspected the final compiled initialization method: evidence `ev_11f823cae77efcf6f5e4a485683fb2353faec1d1c0e388569e314d00c96b1fa5` confirms the user-unlock check, protected unlock broadcast receiver, weak activity owner and settings-worker dispatch in the built artifact. This is static evidence only. The diagnostic build is experimental, with no tag or release.

@@ -18,6 +18,9 @@ def main():
     assert "name='io.github.adiker.hyperoshomefix'" in badging, "Wrong module package"
     assert "uses-permission" not in badging, "Unexpected Android permissions"
     assert xml.count("E: activity ") == 1, "Unexpected activity exposure"
+    assert xml.count("E: provider ") == 1, "Unexpected provider exposure"
+    assert '".ModuleStateProvider"' in xml or '"io.github.adiker.hyperoshomefix.ModuleStateProvider"' in xml
+    assert '"io.github.adiker.hyperoshomefix.state"' in xml, "Wrong IPC authority"
     assert "io.github.adiker.hyperoshomefix.MainActivity" in xml or '".MainActivity"' in xml
     for name, expected in [("xposedmodule", "0xffffffff"), ("xposedminversion", "0x5d"),
                            ("xposedsharedprefs", "0xffffffff")]:
@@ -37,7 +40,7 @@ def main():
                 all_defined.update(defined)
                 assert all(item.startswith("Lio/github/adiker/hyperoshomefix/") for item in defined), "Bundled framework/vendor implementation"
         assert any("HomeFixModule;->handleLoadPackage(" in item for item in all_defined), "Missing compiled module entry"
-    print("PASS: package, zero permissions, one settings activity, legacy metadata/scope/entry, module-only DEX")
+    print("PASS: package, zero permissions, one settings activity/provider, legacy metadata/scope/entry, module-only DEX")
 
 
 if __name__ == "__main__":
