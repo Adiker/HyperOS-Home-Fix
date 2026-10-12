@@ -48,3 +48,13 @@ CustoMIUIzer's GPL and HyperCeiler's AGPL code was not copied. The Apache-2.0 im
 REA-assisted review identified stale lifecycle/animation transactions, duplicate native cleanup, cancellation callback ambiguity and mutable gesture-state classification. The final implementation invalidates owner tokens and queued starts, preserves native Back, snapshots eligibility at the event and uses a recursion guard. Final static review found no remaining actionable defect.
 
 Still unknown: physical-device behavior, framework/SELinux settings sharing, actual callback thread ordering, every firmware-specific overlay path and visual animation continuity. See [the pending device checklist](TESTING.md); release attestation must not be filled from these static findings.
+
+## Home-to-home regression investigation — 2026-10-12
+
+The owner reported no visible effect with the module enabled and scoped after a soft reboot. No connected ADB device was available; activation logs were requested, so actual loading/compatibility remains unknown.
+
+Focused REA inspection found that `NavStubView.performHomeToHome()` schedules `lambda$performHomeToHome$49()` on the native main executor. That callback constructs MAIN/HOME with `ignore_bring_to_front=true` and `filter_flag=true`, then invokes `BaseLauncher.onNewIntent()`. The original module filter explicitly rejected `ignore_bring_to_front`, proving a source-level omission of this native gesture path. Evidence: `ev_897e74e82b7de0d87ad15e75ae5cae30d4f72cc42785022dddb49408dcd42c7c` and `ev_8c987ef0ad4fc98a01efdd5679aa4c31dd7a619b4e2d1027c5eec49ab1065dd6`.
+
+The focused native Recents-to-HOME callback instead performs overview-state exit and native finalization; it does not construct that intent in the inspected body. Evidence: `ev_c2898e1e32f2815122caad52c486a110e08a86aa302fafcae79709e60cfc4fb7`. This observation is bounded to that method and does not replace device regression testing.
+
+Experimental build 2 accepts the native focus flag while retaining MAIN/HOME, location/feed exclusions, identity checks and cancellation guards. No new launcher method hook was needed. Tests reproduce the rejected native flag and verify that it cannot make another action/category or a location/feed intent eligible. This repairs the demonstrated filtering bug; it does not yet prove it is the only reason for the owner's observed behavior.

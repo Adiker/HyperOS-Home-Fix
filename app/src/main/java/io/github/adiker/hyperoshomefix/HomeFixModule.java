@@ -43,10 +43,14 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
     @Override public void handleLoadPackage(XC_LoadPackage.LoadPackageParam load) {
         if (!Compatibility.PACKAGE.equals(load.packageName)
                 || !Compatibility.PACKAGE.equals(load.processName) || !load.isFirstApplication) return;
-        if (Build.VERSION.SDK_INT != 36 || !"myron".equals(Build.DEVICE)) return;
         try {
             preferences = new XSharedPreferences(MODULE, "settings");
             readSettings();
+            if (Build.VERSION.SDK_INT != 36 || !"myron".equals(Build.DEVICE)) {
+                log("Unsupported Android/device profile; no hooks installed.");
+                return;
+            }
+            log("Module build " + BuildConfig.VERSION_CODE + ": launcher callback received; waiting for native onCreate.");
             Class<?> base = load.classLoader.loadClass("com.miui.home.launcher.BaseLauncher");
             Method create = method(base, "onCreate", void.class, Bundle.class);
             XposedBridge.hookMethod(create, new XC_MethodHook() {
@@ -92,9 +96,12 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
         if (preferences == null) return false;
         try {
             preferences.reload();
-            // Unreadable settings fail closed, rather than silently ignoring the user's switch.
-            if (!preferences.getBoolean("initialized", false)) return false;
             diagnostics = preferences.getBoolean("diagnostics", false);
+            // Unreadable settings fail closed, rather than silently ignoring the user's switch.
+            if (!preferences.getBoolean("initialized", false)) {
+                log("Settings not initialized/readable; HOME correction is inactive.");
+                return false;
+            }
             return preferences.getBoolean("enabled", true);
         } catch (Throwable error) { fail(error); return false; }
     }
@@ -113,6 +120,7 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
                     Activity a = (Activity) p.thisObject;
                     // Save the pre-native focus; do not alter Intent, arguments, result or exception.
                     boolean home = isHome((Intent) p.args[0]) && enabled();
+                    log(home ? "MAIN/HOME intent accepted." : "Intent excluded or correction disabled.");
                     p.setObjectExtra("homefix.home", home);
                     p.setObjectExtra("homefix.focus", a.hasWindowFocus());
                     if (!home) cancel(a);

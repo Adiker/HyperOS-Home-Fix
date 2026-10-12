@@ -16,6 +16,14 @@ public class HomeIntentPolicyTest {
     @Test public void nativeSpecialIntentsAreExcluded() {
         assertFalse(HomeIntentPolicy.accepts("android.intent.action.MAIN", true, true, false, false));
         assertFalse(HomeIntentPolicy.accepts("android.intent.action.MAIN", true, false, true, false));
-        assertFalse(HomeIntentPolicy.accepts("android.intent.action.MAIN", true, false, false, true));
+    }
+    @Test public void nativeHomeToHomeGestureFlagDoesNotRejectHome() {
+        assertTrue(HomeIntentPolicy.accepts("android.intent.action.MAIN", true, false, false, true));
+    }
+    @Test public void nativeFocusFlagCannotTurnOtherIntentsIntoHome() {
+        assertFalse(HomeIntentPolicy.accepts("android.intent.action.VIEW", true, false, false, true));
+        assertFalse(HomeIntentPolicy.accepts("android.intent.action.MAIN", false, false, false, true));
+        assertFalse(HomeIntentPolicy.accepts("android.intent.action.MAIN", true, true, false, true));
+        assertFalse(HomeIntentPolicy.accepts("android.intent.action.MAIN", true, false, true, true));
     }
 }

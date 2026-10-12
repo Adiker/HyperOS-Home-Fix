@@ -12,7 +12,7 @@ An initialized, framework-readable `settings` preference file is required. `init
 
 ## HOME intent path
 
-Before `BaseLauncher.onNewIntent(Intent)`, the module recognizes `ACTION_MAIN` plus `CATEGORY_HOME`, excluding native app-location, feed-return and `ignore_bring_to_front` special intents. It records focus and creates a three-second request, then lets the complete original method run unchanged. A hook on the native already-home handler records whether cleanup already ran, preventing duplicate cleanup.
+Before `BaseLauncher.onNewIntent(Intent)`, the module recognizes `ACTION_MAIN` plus `CATEGORY_HOME`, excluding native app-location and feed-return special intents. POCO's `ignore_bring_to_front` flag remains accepted: its native home-to-home gesture sets that flag along with `filter_flag`. It records focus and creates a three-second request, then lets the complete original method run unchanged. A hook on the native already-home handler records whether cleanup already ran, preventing duplicate cleanup.
 
 Already-focused HOME can complete after the original handler. HOME arriving from another app waits for `notifyMiuiAnimationEnd()` or `onEnterAnimationComplete()`. Completion and focus callbacks can finish an existing request but cannot independently create one. If a completion event is absent, the request expires and no forced reset occurs. No fixed delay claims to represent animation completion.
 

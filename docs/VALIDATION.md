@@ -47,3 +47,9 @@ Lint still treats correctness warnings as errors. Only `AndroidGradlePluginVersi
 The [CI debug artifact](https://github.com/Adiker/HyperOS-Home-Fix/actions/runs/38145950568/artifacts/11705101031) was downloaded and independently checked: signature verification and 16 KiB alignment passed; legacy API 93 metadata, the single POCO scope, entry point, package and module-only DEX passed. The APK SHA-256 is `1a526fff6724d651f291555b74e030c77f73529878fcff912aae7f4275d78ec7`. The artifact ZIP digest reported by GitHub is a separate value.
 
 REA package inspection of the actual CI APK produced evidence `ev_423139adaf33bde58e138b7b9e2699e29e4e4fb39f32c8853c786db834e45b1e`, confirming target SDK 36, version `0.1.0` and no Android permissions. CI artifacts expire after 14 days; rerun the workflow for a fresh testing APK. No version tag, production signing key or stable release was created.
+
+## Experimental build 2 — 2026-10-12
+
+The owner reported no visible behavior change after activation and a soft reboot. REA confirmed that POCO's native home-to-home gesture sends a MAIN/HOME intent with `ignore_bring_to_front=true`; the first implementation rejected it. Build 2 fixes this demonstrated filter bug and adds opt-in bootstrap/intent diagnostics. It keeps the same exact APK allowlist and native methods.
+
+Local debug/release builds and lint pass; 21 tests pass with zero failures/errors/skips, including the native-flag regression and non-HOME isolation. Packaged module verification passes, with module version code 2. A real-device retest and activation logs remain required; the reported phone behavior is not considered fixed merely from these offline results. The push triggers CI for this build and publishes a testing artifact, not a stable release.
