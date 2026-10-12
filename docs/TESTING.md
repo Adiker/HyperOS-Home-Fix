@@ -10,32 +10,32 @@ Results recorded for this initial implementation are in [VALIDATION.md](VALIDATI
 
 ## Physical device — current candidate verification incomplete
 
-Limited build 4 checks and the reproduced app-to-HOME failure are recorded in [VALIDATION.md](VALIDATION.md). The matrix below remains incomplete for build 5; passing one earlier scenario is not a full device attestation. In particular, repeat app-from-drawer HOME with the switch disabled and enabled, confirm return to the default page after focus arrives, then interrupt a pending HOME with Back/Recents/input and verify it cannot resume later.
+Build 5 passed the previously failing app-from-drawer HOME path, including a disabled/enabled comparison on the same phone and APK. Drawer search, a different desktop page and basic Back/Recents/Quick Switch checks also passed. Results in [VALIDATION.md](VALIDATION.md) are bounded ADB-driven physical checks, not a full device attestation. The matrix remains incomplete, including interruption during pending HOME and visual animation-quality comparisons.
 
 Record exact firmware build, launcher version/hash, Android SDK, device codename, root/framework versions, navigation mode and commit/APK digest. Test the same commit and build intended for release. Prepare a framework recovery path first.
 
 | Scenario | Expected result | Status |
 | --- | --- | --- |
-| HOME in drawer root, category, search and work profile | Drawer closes and configured default page appears | Pending |
-| HOME on every desktop page, including a non-first configured default | Configured default page appears | Pending |
+| HOME in drawer root, category, search and work profile | Drawer closes and configured default page appears | Partial: root/search passed; category/work profile pending |
+| HOME on every desktop page, including a non-first configured default | Configured default page appears | Partial: one adjacent page passed; all pages/changed default pending |
 | HOME with folder, shortcut menu, search menu, edit mode or widget overlay | Native cleanup and default page; no crash | Pending |
-| HOME from another app launched from drawer/folder/other page | Native HyperOS app-to-home animation completes, then default page | Pending |
+| HOME from another app launched from drawer/folder/other page | Native HyperOS app-to-home animation completes, then default page | Partial: one drawer-launched app passed; folder/other page and visual-quality comparison pending |
 | Three-button navigation and full-screen gestures | Same intended HOME result | Pending |
 | Rapid/repeated HOME, animation scale 0/0.5/1/2, interrupted animation | No recursion, stale correction, flash or crash | Pending |
-| Back from app/drawer/folder; predictive Back | Native behavior unchanged | Pending |
-| Recents open/close, task selection, horizontal Quick Switch | Native behavior unchanged; no surprise default-page reset | Pending |
+| Back from app/drawer/folder; predictive Back | Native behavior unchanged | Partial: injected Back from one app returned to drawer; gesture/predictive Back and folder pending |
+| Recents open/close, task selection, horizontal Quick Switch | Native behavior unchanged; no surprise default-page reset | Partial: overview/Back retained non-default page and one Quick Switch returned to previous app; task selection/interruption pending |
 | Home from overview/feed, split-screen, floating window, PiP and keyguard | Native handling remains usable; document coverage limits | Pending |
-| Disable module switch; diagnostics on/off | No correction when disabled, no module log messages when off | Pending |
-| Refresh/copy diagnostics after launcher restart | Current build/timestamp, framework probe and launcher stage visible; stale reports identified | Pending |
+| Disable module switch; diagnostics on/off | No correction when disabled, no module log messages when off | Partial: disabled/enabled app-to-HOME comparison passed; diagnostics-off pending |
+| Refresh/copy diagnostics after launcher restart | Current build/timestamp, framework probe and launcher stage visible; stale reports identified | Partial: reopening settings showed READY/current build 5/PID and correction event; copy-button check pending |
 | Settings provider unavailable or response delayed beyond HOME deadline | HOME left native; no crash or stale correction | Pending |
 | Different APK/version, Android SDK or device | No correction hooks installed | Pending |
-| Launcher restart, cold launch, rotation and process recreation | No crash or retained activity/transaction | Pending |
+| Launcher restart, cold launch, rotation and process recreation | No crash or retained activity/transaction | Partial: launcher-only restart loaded build 5 and completed checks; rotation/recreation pending |
 | Cold reboot with PIN/password; first unlock | Initialization deferred while locked, then current activity validated after unlock | Pending |
 | Other applications and launcher auxiliary processes | No module state manipulation | Pending |
 
 Compare module disabled/enabled on the same firmware and launcher. Capture a screen recording for animation comparisons and redact framework logs. Test immediate Back/Recents/Quick Switch during HOME settling. If any mandatory behavior fails, do not attest verification or tag `v0.1.0`.
 
-For experimental build 3, open settings once, enable diagnostics, restart the launcher through the framework/reboot, perform one HOME in the drawer, then reopen settings and choose **Refresh diagnostics** and **Copy diagnostics**. Report the entire copied text. A settings-app callback proves only that process's callback; `READY` proves reported launcher hook registration, not successful HOME behavior. A missing launcher report can mean bootstrap or IPC failure. Do not infer the failing branch from an absent log alone.
+For the current experimental build, open settings once, enable diagnostics, restart the launcher through the framework/reboot, perform one HOME in the drawer, then reopen settings and choose **Refresh diagnostics** and **Copy diagnostics**. Report the entire copied text. A settings-app callback proves only that process's callback; `READY` proves reported launcher hook registration, not successful HOME behavior. A missing launcher report can mean bootstrap or IPC failure. Do not infer the failing branch from an absent log alone.
 
 ## Release gate
 

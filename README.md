@@ -4,13 +4,13 @@
 
 An experimental, open-source Vector/LSPosed module for the stock POCO Launcher on Android 16 / HyperOS 3. It aims to make HOME close the app drawer and native launcher overlays, then return to the configured default desktop page.
 
-**Status: experimental hardware investigation; no stable release.** Build 4 passed limited drawer/desktop HOME checks on one physical POCO F8 Ultra, but app-to-HOME from the drawer still failed. Build 5 fixes a completion/focus ordering bug and requires that physical retest. A successful build alone does not prove working gestures or preserved animations.
+**Status: experimental; limited physical-device checks passed, no stable release.** The exact build 5 CI APK passed HOME from an app launched through the drawer, drawer search, and a different desktop page on one POCO F8 Ultra. Basic Back, Recents and Quick Switch checks also passed. The full device matrix and animation-quality comparison remain incomplete; see [recorded validation](docs/VALIDATION.md).
 
 ## Compatibility
 
 | Target | Status |
 | --- | --- |
-| POCO F8 Ultra (`myron`), Android 16 / HyperOS 3 | Limited build 4 checks on OS3.0.302.0.WPMEUXM; build 5 retest and full device matrix pending |
+| POCO F8 Ultra (`myron`), Android 16 / HyperOS 3 | Limited build 5 checks passed on OS3.0.302.0.WPMEUXM with Vector 2.2; full device matrix pending |
 | `com.mi.android.globallauncher`, `RELEASE-7.50.06.2592-09011644` (code `750062592`) | Analyzed using REA/JADX and exact DEX declarations |
 | Other devices, Android versions, launcher versions or repacked APKs | Inactive by design |
 

@@ -85,3 +85,23 @@ Build 4 physical checks passed for HOME in drawer root, a different desktop page
 The native trace recorded a CLOSE_TO_HOME animation with the actual NavStubView$9 listener and animation completion at 19:11:30.736, followed by launcher focus gain at 19:11:30.779. The module consumed successful completion and rejected it before creating a request whenever focus was absent. Build 5 retains the bounded completed request until focus is gained, without extending the original deadline or permitting canceled work to revive. Independent review passed. Local debug/release compilation and lint, 30 tests with zero failures/errors/skips, exact launcher/34 declaration checks, module package/provider checks, debug signing and 16 KiB alignment passed. Build 5 still requires the app-to-HOME physical retest. No stable release was created.
 
 The [build 5 CI run](https://github.com/Adiker/HyperOS-Home-Fix/actions/runs/38283971762) completed successfully for commit `dd29df66ab35199f69ac30d13cc60b05e7612e76`. Downloaded reports confirm 30 passing tests, zero failures/ignored tests and zero lint issues. The [CI APK](https://github.com/Adiker/HyperOS-Home-Fix/actions/runs/38283971762/artifacts/11762187979) passed independent provider/legacy metadata/scope/entry/owned-only DEX, signing and 16 KiB alignment verification. APK SHA-256: `e47588455b8e6b9a9113d330d92a455d306d7904214ad3a500ced825aebd8ee8`. Its debug certificate differs from build 4, so an in-place Android update is unavailable. The owner chose manual installation before physical retesting; no module uninstall/install was performed through ADB.
+
+## Build 5 physical retest — 2026-10-12
+
+The owner installed and activated build 5 manually. The installed module digest matched the exact CI APK above, and the installed launcher digest matched the analyzed APK. The existing launcher still ran build 4 until a launcher-only restart loaded build 5. The new process reported readable settings IPC, exact APK validation and installed hooks. Reopening the settings app showed `READY`, reported build 5, the current launcher PID and a native correction event; both feature and diagnostic switches were enabled.
+
+On the same POCO F8 Ultra, firmware `OS3.0.302.0.WPMEUXM`, Android SDK 36 and Vector 2.2:
+
+| Physical check | Observed result |
+| --- | --- |
+| HOME from an app opened by its actual drawer icon | PASS: returned to the configured default desktop, including a repeated run |
+| Disabled/enabled comparison for that same app-to-HOME path | PASS: disabled left drawer visible; enabled returned to default desktop |
+| HOME from drawer root/search with entered text | PASS: drawer closed and default desktop appeared |
+| HOME from an adjacent non-default desktop page | PASS: returned to the configured default desktop |
+| Injected Back from a drawer-launched app | PASS: returned to the drawer instead of forcing the default page |
+| Open Recents on a non-default page, then injected Back | PASS: returned to the same non-default page, with no extra module correction in the checked interval |
+| Horizontal bottom-edge Quick Switch between two apps | PASS: returned to the previous app; native app-to-app trace observed, with no extra module correction in the checked interval |
+
+The first successful app-to-HOME trace showed completion at 19:34:26.195, waiting for the native drawer transition at 19:34:26.223 and native correction at 19:34:26.457. This corroborates the completion/focus fix on the tested path. Launcher process identity remained stable throughout these checks. No launcher data was cleared, system APK modified, whole-phone reboot performed or screen-timeout setting changed. The HOME fix was left enabled after the disabled/enabled comparison.
+
+These checks used ADB-injected input on the physical phone, screenshots and runtime diagnostics. Black/locked-screen captures and an unconfirmed edge-Back attempt were excluded from passing results. Private screenshots, UI dumps, device identifiers, app inventory and full logs remain local and ignored. Successful completion and final page state do not certify frame-by-frame preservation of animation quality. Folder/overlay coverage, changed default page, navigation-mode comparisons, interruption/stress, cold boot/first unlock and the remaining [device matrix](TESTING.md) still require verification. No tag or stable release was created.
