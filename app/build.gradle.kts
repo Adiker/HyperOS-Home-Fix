@@ -16,7 +16,7 @@ android {
         applicationId = "io.github.adiker.hyperoshomefix"
         minSdk = 35
         targetSdk = 36
-        versionCode = 3
+        versionCode = 4
         versionName = "0.1.0"
     }
 

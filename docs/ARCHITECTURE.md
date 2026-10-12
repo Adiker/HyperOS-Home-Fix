@@ -4,7 +4,7 @@ The legacy Xposed entry point is `io.github.adiker.hyperoshomefix.HomeFixModule`
 
 ## Identity and initialization
 
-The bootstrap hook runs after the analyzed `BaseLauncher.onCreate(Bundle)`. It reads package/version information and hashes the installed base APK on a worker thread. No state correction is installed until all identity checks and every required reflective member pass. Unsupported Android SDK/device identifiers bypass bootstrap entirely. Split APK installations are conservatively rejected.
+Build 4's bootstrap hook runs after the analyzed concrete `Launcher.onCreate(Bundle)`. This avoids relying on interception of its superclass call and observes the completed native activity initialization/injection. It reads package/version information and hashes the installed base APK on a worker thread. No state correction is installed until all identity checks and every required reflective member pass. Unsupported Android SDK/device identifiers are reported without installing correction hooks. Split APK installations are conservatively rejected. No lifecycle callback itself resets the desktop.
 
 The SDK 36 and `myron` checks identify the intended Android/device combination; they do not detect or certify a firmware build. The exact APK digest is the strongest static compatibility boundary. `isFirstApplication` is recorded as framework metadata and no longer vetoes a callback that already matches the exact primary package/process. Porting requires fresh analysis, not removal of the compatibility checks.
 
@@ -13,6 +13,8 @@ Build 3 keeps `initialized`, `enabled` and `diagnostics` in the settings app's p
 The provider retains one last initialization report with public build/version/hash metadata and, only while diagnostic logging is enabled, one last fixed event message. No desktop content, arbitrary Intent extras, stack traces, APK paths or other app lists are retained. These are timestamped last observations, not live-process attestations. Diagnostic log emission refreshes the logging permission through IPC before writing.
 
 Settings/status IPC and APK hashing run on a single worker. A ready HOME request reserves one settings lookup; the main-thread response must still match the same live request, then checks initialized/enabled before any native state call. Focus/input/lifecycle cancellation and expiry invalidate delayed replies. Temporary settings IPC failure leaves the current HOME native; a native hook error opens the process circuit breaker. All hook registrations must return a non-null registration before the provider reports `READY`.
+
+The worker attempts the first `CHECKING` report before reading switches. Every status-report failure is optional and cannot abort initialization. Settings-read failure still disables initialization; if the same IPC cannot report the error, the UI can still show no report. A missing report is not proof of a particular failing branch.
 
 Because the launcher is Direct Boot aware, bootstrap defers private settings IPC until the first user unlock. An application-context receiver listens only for the protected system unlock action and retains a weak reference to the latest launcher activity. The initial check/registration race is rechecked; a destroyed activity is not initialized. Private settings remain credential-encrypted.
 

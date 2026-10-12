@@ -71,8 +71,9 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
             profile.putInt("sdk", Build.VERSION.SDK_INT);
             profile.putString("device", Build.DEVICE);
             profile.putBoolean("firstApplication", load.isFirstApplication);
-            Class<?> base = load.classLoader.loadClass("com.miui.home.launcher.BaseLauncher");
-            Method create = method(base, "onCreate", void.class, Bundle.class);
+            // Observe the real activity entry point, not its potentially inlined super-call.
+            Class<?> launcher = load.classLoader.loadClass("com.miui.home.launcher.Launcher");
+            Method create = method(launcher, "onCreate", void.class, Bundle.class);
             XC_MethodHook.Unhook bootstrap = XposedBridge.hookMethod(create, new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
                     if (param.hasThrowable() || checking || installed || failed) return;
@@ -124,12 +125,12 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
         // Hash the installed APK off the UI thread. No hook mutates launcher state yet.
         io.execute(() -> {
             try {
+                reportState("CHECKING", "Launcher callback and concrete activity onCreate reached", profile);
                 ModuleChannel.Settings settings = channel.settings();
                 diagnostics = settings.diagnostics;
-                channel.state("CHECKING", "Launcher callback and native onCreate reached", profile);
                 log("Module build " + BuildConfig.VERSION_CODE + ": launcher bootstrap reached; settings IPC readable.");
                 if (Build.VERSION.SDK_INT != 36 || !"myron".equals(Build.DEVICE)) {
-                    channel.state("UNSUPPORTED_DEVICE", "Android SDK/device allowlist rejected this runtime", profile);
+                    reportState("UNSUPPORTED_DEVICE", "Android SDK/device allowlist rejected this runtime", profile);
                     failed = true;
                     return;
                 }
@@ -144,7 +145,7 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
                         && Compatibility.supported(Build.VERSION.SDK_INT, Build.DEVICE,
                             info.versionName, info.getLongVersionCode(), digest);
                 if (!match) {
-                    channel.state("UNSUPPORTED_APK", "Installed version, digest or split package differs from the analyzed APK", profile);
+                    reportState("UNSUPPORTED_APK", "Installed version, digest or split package differs from the analyzed APK", profile);
                     failed = true;
                     return;
                 }
@@ -436,10 +437,12 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
     private void state(String code, String detail) {
         if (channel == null) return;
         Bundle snapshot = new Bundle(profile);
-        io.execute(() -> {
-            try { channel.state(code, detail, snapshot); }
-            catch (Throwable ignored) { /* Status transport must never fail a native launcher event. */ }
-        });
+        io.execute(() -> reportState(code, detail, snapshot));
+    }
+    /** Worker-thread reporting is optional, including the very first bootstrap report. */
+    private void reportState(String code, String detail, Bundle snapshot) {
+        try { channel.state(code, detail, snapshot); }
+        catch (Throwable ignored) { /* Status transport must never fail a native launcher event. */ }
     }
     private void event(String detail) {
         if (!diagnostics || channel == null) return;

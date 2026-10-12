@@ -4,6 +4,7 @@
   "versionCode": 750062592,
   "sha256": "aba8d486b2116aba1e32143e5d2a2598460965bc5b1aba3db60714a432b11d23",
   "declarations": [
+    "Lcom/miui/home/launcher/Launcher;->onCreate(Landroid/os/Bundle;)V",
     "Lcom/miui/home/launcher/BaseLauncher;->onCreate(Landroid/os/Bundle;)V",
     "Lcom/miui/home/launcher/BaseLauncher;->onNewIntent(Landroid/content/Intent;)V",
     "Lcom/miui/home/launcher/BaseLauncher;->hideAppView()V",

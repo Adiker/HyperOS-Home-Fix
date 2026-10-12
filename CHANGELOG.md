@@ -2,6 +2,12 @@
 
 ## 0.1.0 — unreleased
 
+### Experimental build 4 — 2026-10-12
+
+- Observe the verified concrete `Launcher.onCreate(Bundle)` entry instead of its `BaseLauncher` super-call, after the native activity initialization has returned.
+- Attempt the first bootstrap report before reading switches; a failed optional report no longer aborts initialization. Settings access remains mandatory and fail-closed.
+- Keep native HOME methods and exact compatibility guards unchanged. The build 3 phone failure is unresolved; successful entry-class loading and the settings-app probe do not prove launcher callbacks or IPC access.
+
 ### Experimental build 3 — 2026-10-12
 
 - Add a settings-screen callback probe and last-observed launcher status, profile/hash, module build and optional last event, with refresh/copy actions.
