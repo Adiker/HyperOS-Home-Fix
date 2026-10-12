@@ -25,5 +25,8 @@ final class HomeRequest {
 
     void complete(long now) { if (active(now)) ready = true; }
     boolean ready(long now) { return active(now) && ready; }
+    boolean canRequestSettings(long now, boolean focused) {
+        return ready(now) && focused && !settingsRequested;
+    }
     void cancel() { pending = false; ready = false; cleaned = false; settingsRequested = false; }
 }

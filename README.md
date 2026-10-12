@@ -4,17 +4,17 @@
 
 An experimental, open-source Vector/LSPosed module for the stock POCO Launcher on Android 16 / HyperOS 3. It aims to make HOME close the app drawer and native launcher overlays, then return to the configured default desktop page.
 
-**Status: exact APK analyzed; physical-device behavior is not yet verified. No stable release has been published.** A successful build proves compilation and offline checks, not working gestures or preserved animations on a phone.
+**Status: experimental hardware investigation; no stable release.** Build 4 passed limited drawer/desktop HOME checks on one physical POCO F8 Ultra, but app-to-HOME from the drawer still failed. Build 5 fixes a completion/focus ordering bug and requires that physical retest. A successful build alone does not prove working gestures or preserved animations.
 
 ## Compatibility
 
 | Target | Status |
 | --- | --- |
-| POCO F8 Ultra (`myron`), Android 16 / HyperOS 3 | Implementation target; device tests pending |
+| POCO F8 Ultra (`myron`), Android 16 / HyperOS 3 | Limited build 4 checks on OS3.0.302.0.WPMEUXM; build 5 retest and full device matrix pending |
 | `com.mi.android.globallauncher`, `RELEASE-7.50.06.2592-09011644` (code `750062592`) | Analyzed using REA/JADX and exact DEX declarations |
 | Other devices, Android versions, launcher versions or repacked APKs | Inactive by design |
 
-The installed base APK must have SHA-256 `aba8d486b2116aba1e32143e5d2a2598460965bc5b1aba3db60714a432b11d23`. Split packages are rejected. The device and SDK checks are conservative allowlist checks, not proof that a particular firmware build works. No HyperOS firmware build is currently device-verified. ResuKisu/root-manager choice is outside the hook; the framework must support legacy Xposed API 93. Build 3 delivers private settings through caller-checked IPC rather than relying on cross-process preference-file access.
+The installed base APK must have SHA-256 `aba8d486b2116aba1e32143e5d2a2598460965bc5b1aba3db60714a432b11d23`. Split packages are rejected. The device and SDK checks are conservative allowlist checks, not proof that a particular firmware build works. The recorded firmware session is partial verification, not a stable support guarantee. ResuKisu/root-manager choice is outside the hook; the framework must support legacy Xposed API 93. Since build 3 private settings use caller-checked IPC rather than cross-process preference-file access.
 
 ## Installation
 
@@ -22,6 +22,8 @@ The installed base APK must have SHA-256 `aba8d486b2116aba1e32143e5d2a2598460965
 2. Enable **HyperOS Home Fix** in Vector/LSPosed. Select only **POCO Launcher** (`com.mi.android.globallauncher`) as scope. Do not select SystemUI or the Android framework.
 3. Open the module's settings app once, enable the HOME fix, then reboot. This initializes the private settings; the module stays inactive without a successful settings response.
 4. Leave **Enable HOME fix** on. Optionally enable diagnostics during testing. Settings are read on the next HOME transaction.
+
+After updating an APK, the launcher must actually restart to load the new module code. A settings-app build number does not establish the build running in the launcher. Check the reported launcher build/PID/timestamp. A soft reboot that leaves the old launcher process alive is insufficient. A full reboot is the simplest option; an ADB testing alternative is `adb shell am force-stop com.mi.android.globallauncher`, followed by `adb shell am start -n com.mi.android.globallauncher/com.miui.home.launcher.Launcher`. Do not clear launcher data.
 5. Run the [device test checklist](docs/TESTING.md). Configure the desired default page in POCO Launcher itself. If behavior is unchanged, enable logging, perform HOME, reopen the settings app and use **Refresh diagnostics** / **Copy diagnostics**.
 
 The module does not modify Xiaomi's APK, replace the launcher, request network permission, or install a service. Back keeps its native handler; a cancellation-only observer discards pending HOME corrections when Back starts. Quick Switch and app launch are not used to close the drawer preemptively. See [architecture and limitations](docs/ARCHITECTURE.md) for HOME event filtering and native-state exceptions.

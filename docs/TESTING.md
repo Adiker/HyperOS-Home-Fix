@@ -8,7 +8,9 @@ Run `python3 tools/verify_launcher.py /path/to/PocoLauncher.apk` for an exact-ha
 
 Results recorded for this initial implementation are in [VALIDATION.md](VALIDATION.md). GitHub CI must run after authorized repository publication; local results do not count as a GitHub Actions run.
 
-## Physical device — all pending
+## Physical device — current candidate verification incomplete
+
+Limited build 4 checks and the reproduced app-to-HOME failure are recorded in [VALIDATION.md](VALIDATION.md). The matrix below remains incomplete for build 5; passing one earlier scenario is not a full device attestation. In particular, repeat app-from-drawer HOME with the switch disabled and enabled, confirm return to the default page after focus arrives, then interrupt a pending HOME with Back/Recents/input and verify it cannot resume later.
 
 Record exact firmware build, launcher version/hash, Android SDK, device codename, root/framework versions, navigation mode and commit/APK digest. Test the same commit and build intended for release. Prepare a framework recovery path first.
 

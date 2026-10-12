@@ -11,10 +11,12 @@ import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.view.WindowInsets;
 
 /** Private local settings, caller-checked IPC, and last-observed launcher diagnostics. */
 public final class MainActivity extends Activity {
     private TextView status;
+    private Switch homeFixControl, diagnosticsControl;
     // Hooked only in the module's own app to distinguish loading the class from delivering callbacks.
     public static String frameworkProbe() { return "No framework callback observed in settings app"; }
     @Override public void onCreate(Bundle state) {
@@ -30,8 +32,8 @@ public final class MainActivity extends Activity {
         title.setText(R.string.settings_title);
         title.setTextSize(22);
         layout.addView(title);
-        addSwitch(layout, settings, "enabled", getString(R.string.module_enabled), true);
-        addSwitch(layout, settings, "diagnostics", getString(R.string.diagnostics_enabled), false);
+        homeFixControl = addSwitch(layout, settings, "enabled", getString(R.string.module_enabled), true);
+        diagnosticsControl = addSwitch(layout, settings, "diagnostics", getString(R.string.diagnostics_enabled), false);
         TextView help = new TextView(this);
         help.setText(getString(R.string.settings_help, Compatibility.VERSION));
         layout.addView(help);
@@ -51,6 +53,12 @@ public final class MainActivity extends Activity {
         });
         layout.addView(copy);
         ScrollView scroll = new ScrollView(this);
+        scroll.setOnApplyWindowInsetsListener((view, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            return insets;
+        });
         scroll.addView(layout);
         setContentView(scroll);
     }
@@ -63,6 +71,8 @@ public final class MainActivity extends Activity {
         if (status == null) return;
         Bundle report = getContentResolver().call(ModuleChannel.URI, "status", null, null);
         SharedPreferences settings = getSharedPreferences("settings", MODE_PRIVATE);
+        homeFixControl.setChecked(settings.getBoolean("enabled", false));
+        diagnosticsControl.setChecked(settings.getBoolean("diagnostics", false));
         String code = report == null ? "" : report.getString("code", "");
         String text = getString(R.string.runtime_status_format, BuildConfig.VERSION_CODE,
                 frameworkProbe(), settings.getBoolean("initialized", false),
@@ -83,12 +93,13 @@ public final class MainActivity extends Activity {
         status.setText(text);
     }
 
-    private void addSwitch(LinearLayout layout, SharedPreferences prefs, String key,
+    private Switch addSwitch(LinearLayout layout, SharedPreferences prefs, String key,
                            String label, boolean defaultValue) {
         Switch control = new Switch(this);
         control.setText(label);
         control.setChecked(prefs.getBoolean(key, defaultValue));
         control.setOnCheckedChangeListener((button, checked) -> prefs.edit().putBoolean(key, checked).apply());
         layout.addView(control);
+        return control;
     }
 }

@@ -2,6 +2,12 @@
 
 ## 0.1.0 — unreleased
 
+### Experimental build 5 — 2026-10-12
+
+- Keep a successfully completed HOME gesture pending until the launcher gains focus; inherit the original gesture deadline and preserve all cancellation guards.
+- Add regression tests for late focus, expiration and cancellation before focus. Physical build 4 traces showed animation completion preceding focus by 43 ms and app-to-HOME still leaving the drawer open.
+- Refresh settings switches from stored values on resume/diagnostic refresh and keep the settings layout clear of Android 16 system bars.
+
 ### Experimental build 4 — 2026-10-12
 
 - Observe the verified concrete `Launcher.onCreate(Bundle)` entry instead of its `BaseLauncher` super-call, after the native activity initialization has returned.

@@ -213,11 +213,11 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
         hook(api.gestureFinish, after(p -> {
             Activity a = (Activity) api.navLauncher.get(p.thisObject);
             if (a == null) return;
-            if (!Boolean.TRUE.equals(p.args[0]) || !a.hasWindowFocus()) { cancel(a); return; }
+            if (!Boolean.TRUE.equals(p.args[0])) { cancel(a); return; }
             ModernGesture started = legacyGestures.remove(p.thisObject);
             if (started == null || started.owner.get() != a || now() >= started.deadline) return;
             gestureViews.put(a, new WeakReference<>(p.thisObject));
-            begin(a, true);
+            begin(a, true, started.deadline - HomeRequest.MAX_AGE_MS);
             queue(a);
         }));
         hook(api.gestureAnimating, after(p -> {
@@ -296,11 +296,12 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
         if (!completion.takeCompleted()) return;
         Object nav = api.listenerNav.get(listener);
         Activity a = (Activity) api.navLauncher.get(nav);
-        if (a == null || a != gesture.owner.get() || !a.hasWindowFocus()) return;
+        if (a == null || a != gesture.owner.get()) return;
         legacyGestures.remove(nav);
         // Both native callbacks have finished; no remote surface or icon animation is replaced.
         gestureViews.remove(a);
-        begin(a, true);
+        begin(a, true, gesture.deadline - HomeRequest.MAX_AGE_MS);
+        event("Successful HOME animation completed; waiting for focused correction");
         queue(a);
     }
 
@@ -349,8 +350,11 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
         hooks.add(registered);
     }
     private HomeRequest begin(Activity a, boolean completed) {
+        return begin(a, completed, now());
+    }
+    private HomeRequest begin(Activity a, boolean completed, long timestamp) {
         HomeRequest request = new HomeRequest();
-        request.begin(now(), completed);
+        request.begin(timestamp, completed);
         requests.put(a, request);
         return request;
     }
@@ -371,7 +375,7 @@ public final class HomeFixModule implements IXposedHookLoadPackage {
     private void queue(Activity a) {
         if (failed || correcting) return;
         HomeRequest expected = requests.get(a);
-        if (expected == null || !expected.ready(now()) || expected.settingsRequested) return;
+        if (expected == null || !expected.canRequestSettings(now(), a.hasWindowFocus())) return;
         expected.settingsRequested = true;
         WeakReference<Activity> owner = new WeakReference<>(a);
         io.execute(() -> {

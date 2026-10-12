@@ -4,6 +4,26 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class HomeRequestTest {
+    @Test public void completedGestureSurvivesUntilFirstFocusGain() {
+        HomeRequest request = new HomeRequest();
+        request.begin(100, true);
+        assertFalse(request.canRequestSettings(736, false));
+        assertTrue(request.active(736));
+        assertTrue(request.canRequestSettings(779, true));
+    }
+    @Test public void delayedFocusCannotExtendTheOriginalDeadline() {
+        HomeRequest request = new HomeRequest();
+        request.begin(100, true);
+        assertFalse(request.canRequestSettings(3100, false));
+        assertFalse(request.canRequestSettings(3101, true));
+    }
+    @Test public void inputCancellationBeforeFocusCannotReviveCompletedGesture() {
+        HomeRequest request = new HomeRequest();
+        request.begin(100, true);
+        assertFalse(request.canRequestSettings(736, false));
+        request.cancel();
+        assertFalse(request.canRequestSettings(779, true));
+    }
     @Test public void resumeCannotCreateHomeRequest() {
         HomeRequest request = new HomeRequest();
         request.complete(100);
